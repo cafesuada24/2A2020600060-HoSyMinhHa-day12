@@ -104,6 +104,11 @@ if settings.redis_url:
         _redis.ping()
         USE_REDIS = True
         logger.info(f'Connected to Redis at {settings.redis_url}')
+
+        # Update components to use Redis for stateless operation
+        rate_limiter.redis = _redis
+        cost_guard.redis = _redis
+
     except (ImportError, Exception) as e:
         logger.warning(f'Redis not available ({e}) - using in-memory storage.')
 else:
@@ -525,7 +530,8 @@ def ready() -> dict[str, object]:
 @app.get('/metrics', tags=['Operations'])
 def metrics(user: Annotated[dict, Depends(verify_token)]) -> dict[str, object]:
     """Basic metrics (protected)."""
-    record = cost_guard._get_record(user['username'])
+    user_cost = cost_guard.get_user_cost(user['username'])
+    global_cost = cost_guard.get_global_cost()
     stats = rate_limiter.get_stats(user['username'])
 
     return {
@@ -534,16 +540,18 @@ def metrics(user: Annotated[dict, Depends(verify_token)]) -> dict[str, object]:
         'error_count': _error_count,
         'user_metrics': {
             'username': user['username'],
-            'daily_cost_usd': round(record.total_cost_usd, 4),
+            'daily_cost_usd': round(user_cost, 4),
             'daily_budget_usd': cost_guard.daily_budget_usd,
             'budget_used_pct': round(
-                record.total_cost_usd / cost_guard.daily_budget_usd * 100,
+                (user_cost / cost_guard.daily_budget_usd * 100)
+                if cost_guard.daily_budget_usd > 0
+                else 0,
                 1,
             ),
             'rate_limit_stats': stats,
         },
         'global_metrics': {
-            'global_daily_cost_usd': round(cost_guard._global_cost, 4),
+            'global_daily_cost_usd': round(global_cost, 4),
             'global_daily_budget_usd': cost_guard.global_daily_budget_usd,
         },
     }

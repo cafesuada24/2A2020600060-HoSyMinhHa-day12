@@ -70,8 +70,8 @@ class Settings:
         """Verify config."""
         logger = logging.getLogger(__name__)
         if self.environment == 'production':
-            if self.agent_api_key == 'dev-key-change-me':
-                raise ValueError('AGENT_API_KEY must be set in production!')
+            if self.openai_api_key == 'dev-key-change-me':
+                raise ValueError('OPEN_API_KEY must be set in production!')
             if self.jwt_secret == 'dev-jwt-secret':
                 raise ValueError('JWT_SECRET must be set in production!')
         if not self.openai_api_key:
