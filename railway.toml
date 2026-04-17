@@ -5,19 +5,15 @@
 # ============================================================
 
 [build]
-# Dùng Dockerfile để đảm bảo bảo mật (non-root user) và tối ưu hóa qua uv
 builder = "DOCKERFILE"
 
 [deploy]
-# ✅ Start command — Sử dụng uv run và trỏ đúng module app.main:app
-startCommand = "uv run uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2"
+startCommand = "uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2"
 
-# Health check — Đồng bộ với endpoint trong app/main.py
 healthcheckPath = "/health"
 healthcheckTimeout = 60
 healthcheckInterval = 5
 
-# Tự động restart khi crash
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
 
