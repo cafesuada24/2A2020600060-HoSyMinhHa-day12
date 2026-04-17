@@ -4,7 +4,15 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastapi>=0.136.0",
+    "psutil>=7.2.2",
+    "pydantic>=2.13.1",
+    "pyjwt>=2.12.1",
+    "python-multipart>=0.0.26",
+    "redis>=7.4.0",
+    "uvicorn[standard]>=0.44.0",
+]
 
 [tool.ruff]
 line-length = 88
@@ -76,3 +84,8 @@ unfixable = []
 [tool.ruff.lint.pydocstyle]
 # Use Google-style docstrings.
 convention = "google"
+
+[dependency-groups]
+dev = [
+    "python-dotenv>=1.2.2",
+]

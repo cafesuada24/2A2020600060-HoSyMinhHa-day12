@@ -1,0 +1,36 @@
+services:
+  agent:
+    build: .
+    # Use variable substitution for the port mapping
+    # docker-compose will read this from .env.local automatically
+    ports:
+      - "${PORT:-8000}:${PORT:-8000}"
+    environment:
+      - ENVIRONMENT=staging
+      - APP_NAME=Production AI Agent
+      - REDIS_URL=redis://redis:6379/0
+      # Keep HOST and PORT here to override Dockerfile defaults with env_file values
+      - HOST=${HOST:-0.0.0.0}
+      - PORT=${PORT:-8000}
+    env_file:
+      - .env.local
+    depends_on:
+      redis:
+        condition: service_healthy
+    # Healthcheck using CMD-SHELL to expand environment variables inside the container
+    healthcheck:
+      test: ["CMD-SHELL", "uv run python -c \"import os, urllib.request; h=os.getenv('HOST', '0.0.0.0'); p=os.getenv('PORT', '8000'); urllib.request.urlopen(f'http://localhost:{p}/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
