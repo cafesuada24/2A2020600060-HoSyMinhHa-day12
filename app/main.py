@@ -74,18 +74,21 @@ rate_limiter = RateLimiter(
 )
 cost_guard = CostGuard(daily_budget_usd=settings.daily_budget_usd)
 
-USE_REDIS = True
-try:
-    import redis
+USE_REDIS = False
+_redis = None
+_memory_store: dict[str, dict[str, object]] = {}
 
-    _redis = redis.from_url(settings.redis_url)
-    _redis.ping()
-    USE_REDIS = True
-    logger.info('Connected to Redis')
-except ImportError:
-    USE_REDIS = False
-    _memory_store: dict[str, dict[str, object]] = {}
-    logger.info('Redis not available - using in-memory storage.')
+if settings.redis_url:
+    try:
+        import redis
+        _redis = redis.from_url(settings.redis_url, socket_timeout=2)
+        _redis.ping()
+        USE_REDIS = True
+        logger.info(f'Connected to Redis at {settings.redis_url}')
+    except (ImportError, Exception) as e:
+        logger.warning(f'Redis not available ({e}) - using in-memory storage.')
+else:
+    logger.info('REDIS_URL not set - using in-memory storage.')
 
 
 # ──────────────────────────────────────────────────────────
@@ -160,8 +163,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 'app': settings.app_name,
                 'version': settings.app_version,
                 'environment': settings.environment,
-            }
-        )
+            },
+        ),
     )
     # Simulate initialization
     time.sleep(0.1)
@@ -217,8 +220,8 @@ async def request_middleware(
                     'path': request.url.path,
                     'status': response.status_code,
                     'ms': duration,
-                }
-            )
+                },
+            ),
         )
         return response
     except Exception as e:
@@ -230,8 +233,8 @@ async def request_middleware(
                     'method': request.method,
                     'path': request.url.path,
                     'error': str(e),
-                }
-            )
+                },
+            ),
         )
         raise
 
@@ -548,13 +551,6 @@ signal.signal(signal.SIGTERM, _handle_signal)
 
 if __name__ == '__main__':
     logger.info(f'Starting {settings.app_name} on {settings.host}:{settings.port}')
-    uvicorn.run(
-        'app.main:app',
-        host=settings.host,
-        port=settings.port,
-        reload=settings.debug,
-        timeout_graceful_shutdown=30,
-    )
     uvicorn.run(
         'app.main:app',
         host=settings.host,

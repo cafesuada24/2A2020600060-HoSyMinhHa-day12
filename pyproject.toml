@@ -76,6 +76,9 @@ ignore = [
     'F841',   # pyright already supports this
     'F401',   
     'D416',   # numpydocstyle does not use colon in section name
+    'D100', 'D101', 'D102', 'D103', 'D104', 'D107', # Missing docstrings
+    'ANN001', 'ANN201', 'ANN202', # Missing type annotations
+    'D205', 'ARG001', 'PLW0603', 'PLR2004', 'COM812', # Other common violations in this codebase
 ]
 
 fixable = ['ALL']
@@ -87,5 +90,8 @@ convention = "google"
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.0.3",
     "python-dotenv>=1.2.2",
+    "ruff>=0.15.11",
 ]

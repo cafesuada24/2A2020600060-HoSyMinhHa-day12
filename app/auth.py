@@ -44,8 +44,7 @@ def create_token(username: str, role: str) -> str:
 
 
 def verify_token(token: Annotated[str, Depends(oauth2_scheme)]) -> dict:
-    """
-    Dependency: verify JWT token từ Authorization header.
+    """Dependency: verify JWT token từ Authorization header.
     Raise HTTPException nếu token invalid hoặc expired.
     """
     try:
