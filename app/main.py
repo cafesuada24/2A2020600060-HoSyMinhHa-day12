@@ -167,7 +167,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         ),
     )
     # Simulate initialization
-    time.sleep(0.1)
+    import asyncio
+    await asyncio.sleep(0.1)
     _is_ready = True
     logger.info(json.dumps({'event': 'ready'}))
 

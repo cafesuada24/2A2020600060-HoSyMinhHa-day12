@@ -31,10 +31,10 @@ ENV PYTHONUNBUFFERED=1
 # Metadata only, does not bind the port
 EXPOSE $PORT
 
-# Healthcheck using dynamic port
+# Healthcheck using localhost
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD uv run python -c \
-    "import os, urllib.request; p=os.getenv('PORT', '8000'); h=os.getenv('HOST', '0.0.0.0'); urllib.request.urlopen(f'http://{h}:{p}/health')" \
+    "import os, urllib.request; p=os.getenv('PORT', '8000'); urllib.request.urlopen(f'http://localhost:{p}/health')" \
     || exit 1
 
 # Start the application using environment variables
