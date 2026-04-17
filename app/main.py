@@ -14,6 +14,7 @@ Checklist:
   ✅ Error handling
 """
 
+import asyncio
 import json
 import logging
 import signal
@@ -30,22 +31,39 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, Field
 
+# AI Agent
+from app.agent.agent import ReActAgent
 from app.auth import authenticate_user, create_token, verify_token
 from app.config import settings
+from app.core.mock_provider import MockProvider
+from app.core.openai_provider import OpenAIProvider
 from app.cost_guard import CostGuard
 from app.rate_limiter import RateLimiter
+from app.telemetry.logger import logger
+from app.tools.tools import get_tool_descriptions
 
-# Mock LLM
-from utils.mock_llm import ask as llm_ask
+if settings.openai_api_key:
+    llm_provider = OpenAIProvider(
+        model_name=settings.llm_model,
+        api_key=settings.openai_api_key,
+        base_url=settings.openai_base_url,
+    )
+else:
+    llm_provider = MockProvider()
+
+agent = ReActAgent(
+    llm=llm_provider,
+    tools=get_tool_descriptions(),
+)
 
 # ─────────────────────────────────────────────────────────
 # Logging — JSON structured
 # ─────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.DEBUG if settings.debug else logging.INFO,
-    format='{"ts":"%(asctime)s","lvl":"%(levelname)s","msg":"%(message)s"}',
-)
-logger = logging.getLogger(__name__)
+# logging.basicConfig(
+#     level=logging.DEBUG if settings.debug else logging.INFO,
+#     format='{"ts":"%(asctime)s","lvl":"%(levelname)s","msg":"%(message)s"}',
+# )
+# logger = logger
 
 START_TIME = time.time()
 MAX_CONVERSATION_TURN = 10
@@ -81,6 +99,7 @@ _memory_store: dict[str, dict[str, object]] = {}
 if settings.redis_url:
     try:
         import redis
+
         _redis = redis.from_url(settings.redis_url, socket_timeout=2)
         _redis.ping()
         USE_REDIS = True
@@ -143,7 +162,7 @@ def append_to_history(
     )
     # Giữ tối đa 20 messages (10 turns)
     if len(history) > MAX_CONVERSATION_TURN * 2:
-        history = history[-(MAX_CONVERSATION_TURN * 2):]
+        history = history[-(MAX_CONVERSATION_TURN * 2) :]
     session['history'] = history
     save_session(user_id, session_id, session)
     return history
@@ -167,7 +186,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         ),
     )
     # Simulate initialization
-    import asyncio
     await asyncio.sleep(0.1)
     _is_ready = True
     logger.info(json.dumps({'event': 'ready'}))
@@ -262,22 +280,16 @@ class AskRequest(BaseModel):
         max_length=2000,
         description='Your question for the agent',
     )
-    model: str = Field(
-        'gpt-4o-mini',
-        description='Model to use (e.g., gpt-4o-mini, gpt-4o)',
-    )
 
 
 class AskResponse(BaseModel):
     question: str
     answer: str
-    model: str
     timestamp: str
 
 
 class ChatRequest(BaseModel):
     question: str
-    model: str = 'gpt-4o-mini'
     session_id: str | None = None  # None = tạo session mới
 
 
@@ -289,7 +301,6 @@ class ChatResponse(BaseModel):
     question: str
     answer: str
     turn: int
-    model: str
     timestamp: float
 
 
@@ -357,8 +368,8 @@ async def ask_agent(
         ),
     )
 
-    # 3. LLM Call
-    answer = llm_ask(body.question)
+    # 3. Agent Call
+    answer = agent.run(body.question)
 
     # 4. Record usage (mock tokens: 1 word = 2 tokens)
     input_tokens = len(body.question.split()) * 2
@@ -373,7 +384,6 @@ async def ask_agent(
     return AskResponse(
         question=body.question,
         answer=answer,
-        model=settings.llm_model,
         timestamp=datetime.now(UTC).isoformat(),
     )
 
@@ -400,8 +410,8 @@ async def chat(
     # Add user message to history
     append_to_history(username, session_id, 'user', body.question)
 
-    # 3. LLM Call
-    answer = llm_ask(body.question)
+    # 3. Agent Call
+    answer = agent.run(body.question)
 
     # Add assistant message to history
     history = append_to_history(username, session_id, 'assistant', answer)
@@ -436,7 +446,6 @@ async def chat(
         turn=len([m for m in history if m['role'] == 'user']),
         served_by=INSTANCE_ID,
         storage='redis' if USE_REDIS else 'in-memory',
-        model=body.model,
         timestamp=datetime.now(UTC).timestamp(),
     )
 
@@ -485,7 +494,7 @@ def health() -> dict[str, object]:
 
     status = 'ok' if (not USE_REDIS or redis_ok) else 'degraded'
 
-    checks = {'llm': 'mock' if not settings.openai_api_key else 'openai'}
+    checks = {'llm': settings.llm_model}
     return {
         'status': status,
         'version': settings.app_version,

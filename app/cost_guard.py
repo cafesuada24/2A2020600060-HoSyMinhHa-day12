@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 MODEL_PRICE: dict[str, tuple[float, float]] = {
     'gpt-4o-mini': (15e-5, 6e-4),
     'gpt-4o': (5e-3, 15e-3),
+    'gemini-3.1-flash-lite-preview': (0.0, 0.0),
 }
 
 

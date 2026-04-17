@@ -3,10 +3,8 @@ services:
     build: .
     # Use variable substitution for the port mapping
     # docker-compose will read this from .env.local automatically
-    ports:
-      - "${PORT:-8000}:${PORT:-8000}"
     environment:
-      - ENVIRONMENT=staging
+      - ENVIRONMENT=production
       - APP_NAME=Production AI Agent
       - REDIS_URL=redis://redis:6379/0
       # Keep HOST and PORT here to override Dockerfile defaults with env_file values
@@ -19,13 +17,23 @@ services:
         condition: service_healthy
     # Healthcheck using CMD-SHELL to expand environment variables inside the container
     healthcheck:
-      test: ["CMD-SHELL", "uv run python -c \"import os, urllib.request; h=os.getenv('HOST', '0.0.0.0'); p=os.getenv('PORT', '8000'); urllib.request.urlopen(f'http://localhost:{p}/health')\""]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD-SHELL", "uv", "run", "python", "-c", "import os, urllib.request; h=os.getenv('HOST', '0.0.0.0'); p=os.getenv('PORT', '8000'); urllib.request.urlopen(f'http://{h}:{p}/health')"]
+      interval: 15s
+      timeout: 5s
       retries: 3
-      start_period: 15s
     restart: unless-stopped
+    networks:
+      - agent_net
+    deploy:
+      replicas: 3           # ← scale to 3 instances
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
 
+  # ──────────────────────────────────────
+  # Redis
+  # ──────────────────────────────────────
   redis:
     image: redis:7-alpine
     command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
@@ -34,3 +42,23 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
+    networks:
+      - agent_net
+
+  # ──────────────────────────────────────
+  # Nginx — Load Balancer
+  # ──────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - agent
+    networks:
+      - agent_net
+
+networks:
+  agent_net:
+    driver: bridge

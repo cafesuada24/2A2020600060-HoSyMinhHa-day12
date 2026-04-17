@@ -36,14 +36,12 @@ class Settings:
 
     # LLM
     openai_api_key: str = field(default_factory=lambda: os.getenv('OPENAI_API_KEY', ''))
+    openai_base_url: str = field(default_factory=lambda: os.getenv('OPENAI_BASE_URL', ''))
     llm_model: str = field(
         default_factory=lambda: os.getenv('LLM_MODEL', 'gpt-4o-mini'),
     )
 
     # Security
-    agent_api_key: str = field(
-        default_factory=lambda: os.getenv('AGENT_API_KEY', 'dev-key-change-me'),
-    )
     jwt_secret: str = field(
         default_factory=lambda: os.getenv('JWT_SECRET', 'dev-jwt-secret'),
     )
@@ -61,7 +59,9 @@ class Settings:
         default_factory=lambda: float(os.getenv('DAILY_BUDGET_USD', '5.0')),
     )
 
-    instance_id = os.getenv('INSTANCE_ID', f'instance-{uuid.uuid4().hex[:6]}')
+    instance_id: str = field(
+        default_factory=lambda: os.getenv('INSTANCE_ID', f'instance-{uuid.uuid4().hex[:6]}'),
+    )
 
     # Storage
     redis_url: str = field(default_factory=lambda: os.getenv('REDIS_URL', 'redis://localhost:6379/0'))
