@@ -64,7 +64,7 @@ class Settings:
     instance_id = os.getenv('INSTANCE_ID', f'instance-{uuid.uuid4().hex[:6]}')
 
     # Storage
-    redis_url: str = field(default_factory=lambda: os.getenv('REDIS_URL', ''))
+    redis_url: str = field(default_factory=lambda: os.getenv('REDIS_URL', 'redis://localhost:6379/0'))
 
     def validate(self) -> Self:
         """Verify config."""

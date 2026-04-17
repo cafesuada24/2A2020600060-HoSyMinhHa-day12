@@ -8,7 +8,7 @@
 builder = "DOCKERFILE"
 
 [deploy]
-startCommand = "uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2"
+startCommand = "uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"
 
 healthcheckPath = "/health"
 healthcheckTimeout = 60
@@ -17,6 +17,14 @@ healthcheckInterval = 5
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
 
+[variables]
+HOST=0.0.0.0
+PORT=8000
+WORKERS=2
+ENVIRONMENT=development
+DEBUG=true
+APP_NAME=AI Agent
+APP_VERSION=1.0.0
 # ============================================================
 # Environment variables CẦN THIẾT cho Production:
 #   railway variables set ENVIRONMENT=production
