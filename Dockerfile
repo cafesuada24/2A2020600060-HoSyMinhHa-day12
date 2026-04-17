@@ -1,43 +1,53 @@
-FROM ghcr.io/astral-sh/uv:python3.12-trixie-slim
+# --- Stage 1: Builder ---
+FROM ghcr.io/astral-sh/uv:python3.12-trixie-slim AS builder
+
+WORKDIR /app
+
+# Enable bytecode compilation
+ENV UV_COMPILE_BYTECODE=1
+# Copy only files needed for dependency installation
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies into a virtual environment
+RUN uv sync --frozen --no-dev --no-install-project
+
+# --- Stage 2: Runtime ---
+FROM python:3.12-slim-trixie
+
+WORKDIR /app
 
 # Create a non-root user
 RUN groupadd -r agent && useradd -r -g agent -d /app agent
 
-# Set working directory
-WORKDIR /app
-COPY pyproject.toml uv.lock ./
-# Install dependencies using uv sync
-RUN uv sync --locked
+# Copy the virtual environment from the builder
+COPY --from=builder /app/.venv /app/.venv
 
-# Copy application code and dependency files
+# Copy application code
 COPY app/ ./app/
 COPY utils/ ./utils/
 
 # Ensure files are owned by the non-root user
 RUN chown -R agent:agent /app
 
-# Switch to non-root user
-USER agent
-
-# Default environment variables (can be overridden)
+# Set environment variables
+ENV PATH="/app/.venv/bin:$PATH"
 ENV HOST=0.0.0.0
 ENV PORT=8000
-ENV WORKERS=2
-ENV UV_NO_DEV=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-
-# Metadata only, does not bind the port
+# Metadata
 EXPOSE $PORT
 
-# Healthcheck using localhost
+# Switch to non-root user
+USER agent
+
+# Healthcheck using python instead of uv to keep runtime slim
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD uv run python -c \
-    "import os, urllib.request; p=os.getenv('PORT', '8000'); urllib.request.urlopen(f'http://localhost:{p}/health')" \
+    CMD python3 -c \
+    "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" \
     || exit 1
 
 # Start the application
-# Using shell form to allow $PORT expansion from environment
-CMD uv run uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
 
