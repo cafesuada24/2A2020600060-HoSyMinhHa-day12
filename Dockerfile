@@ -39,5 +39,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
 
 # Start the application
 # Using shell form to allow $PORT expansion from environment
-CMD uv run uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2 
+CMD uv run uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2
 
